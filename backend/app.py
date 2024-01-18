@@ -1,5 +1,5 @@
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
-from models import ma,db, bcrypt, User
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, unset_jwt_cookies
+from models import ma,db, bcrypt, User, user_schema
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
 
@@ -73,7 +73,25 @@ def login():
         'id':user.id
     })
 
-    return jsonify({"access_token": access_token}), 200
+    return jsonify({"message":"Login Successful","access_token": access_token}), 200
+
+@app.route('/logout',methods=['POST'])
+@jwt_required()
+def logout():
+    response = jsonify({"message":"Logout Successful"})
+    unset_jwt_cookies(response)
+    return response, 200
+
+@app.route('/fetchuserinfo', methods=['GET'])
+@jwt_required()
+def fetchuserinfo():
+    this_user = get_jwt_identity()
+    user = User.query.get(this_user['id'])
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    user_data = user_schema.dump(user)
+    print(user_data)
+    return jsonify(user_data), 200
 
 @app.route('/protected',methods=['GET'])
 @jwt_required()
