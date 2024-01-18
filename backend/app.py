@@ -129,6 +129,61 @@ def create_theatre():
         print(f"Error occurred while creating theatre: {str(e)}")
         return jsonify({'message': 'Error occurred while creating theatre'}), 500
 
+# GET ALL THEATRES
+@app.route('/theatres', methods=['GET'])
+@jwt_required()
+def get_all_theatres():
+    current_user = get_jwt_identity()
+    theatres = Theatre.query.filter_by(created_by=current_user['id']).all()
+    result = theatres_schema.dump(theatres)
+    return jsonify({'data':result})
+
+# GET A SINGLE THEATRE by using it's ID
+@app.route('/theatres/<int:theatre_id>', methods=['GET'])
+@jwt_required()
+def get_theatre(theatre_id):
+    theatre = Theatre.query.get(theatre_id)
+    if not theatre:
+        return jsonify({'message': 'Theatre not found'}), 404
+
+    result = theatre_schema.dump(theatre)
+    return jsonify(result), 200
+
+# UPDATE A THEATRE
+@app.route('/theatres/<int:theatre_id>', methods=['PUT'])
+@jwt_required()
+def update_theatre(theatre_id):
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user['id'])
+
+    if not user or not user.is_admin:
+        return jsonify({'message': 'Access denied. You must be an admin to edit a theatre.'}), 403
+
+    theatre = Theatre.query.get(theatre_id)
+    if not theatre:
+        return jsonify({'message': 'Theatre not found'}), 404
+
+    data = request.json
+    name = data.get('name')
+    place = data.get('place')
+    location = data.get('location')
+    capacity = data.get('capacity')
+
+    if not name or not place or not location or not capacity:
+        return jsonify({'message': 'All fields are required'}), 400
+
+    theatre.name = name
+    theatre.place = place
+    theatre.location = location
+    theatre.capacity = capacity
+
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Theatre updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error occurred while updating theatre: {str(e)}")
+        return jsonify({'message': 'Error occurred while updating theatre'}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
