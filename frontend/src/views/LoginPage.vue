@@ -1,34 +1,41 @@
 <template>
-  <div class="login-container">
-    <form @submit.prevent="login" class="login-form">
-      <h2>Login</h2>
-      <div class="form-group">
-        <label for="email">Email:</label>
-        <input
-          v-model="email"
-          type="email"
-          id="email"
-          class="form-control"
-          required
-        />
-      </div>
-      <div class="form-group">
-        <label for="password">Password:</label>
-        <input
-          v-model="password"
-          type="password"
-          id="password"
-          class="form-control"
-          required
-        />
-      </div>
-      <button type="submit" class="btn btn-primary">Login</button>
-    </form>
+  <div>
+    <NavBar />
+    <div class="login-container">
+      <form @submit.prevent="login" class="login-form">
+        <h2>Login</h2>
+        <div class="form-group">
+          <label for="email">Email:</label>
+          <input
+            v-model="email"
+            type="email"
+            id="email"
+            class="form-control"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input
+            v-model="password"
+            type="password"
+            id="password"
+            class="form-control"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+    </div>
   </div>
 </template>
 
 <script>
+import NavBar from "@/components/NavBar.vue";
 export default {
+  components: {
+    NavBar,
+  },
   data() {
     return {
       email: "",
