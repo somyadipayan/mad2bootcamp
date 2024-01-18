@@ -74,7 +74,7 @@ export default {
     };
   },
   methods: {
-    signup() {
+    async signup() {
       const formdata = {
         email: this.email,
         name: this.name,
@@ -82,22 +82,27 @@ export default {
         password: this.password,
         is_admin: this.is_admin,
       };
-      fetch("http://localhost:5000/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formdata),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          console.log(data);
+      try {
+        const response = await fetch("http://localhost:5000/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formdata),
+        });
+        console.log(formdata);
+        const data = await response.json();
+        if (response.ok) {
+          alert(data.message);
           // push to login
           this.$router.push("/about");
-        })
-        .catch((error) => {
-          console.log(error);
-        });
+        } else {
+          alert(data.error);
+        }
+      } catch (error) {
+        console.error("Registration error:", error);
+        alert("An error occurred while attempting to register.");
+      }
     },
   },
 };

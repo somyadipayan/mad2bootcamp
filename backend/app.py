@@ -34,12 +34,12 @@ def register():
     password = data.get('password')
     is_admin = data.get('is_admin')
 
-    if not email or not name or not password or not is_admin:
+    if not email or not name or not password:
         return jsonify({'error':'REQUIRED FIELDS CAN\'T BE EMPTY'}), 409
 
     existing_user = User.query.filter_by(email=email).first()
     if existing_user:
-        return jsonify({'message':'Email is already Registered'}), 409
+        return jsonify({'error':'Email is already Registered'}), 409
 
     new_user = User(email=email,
                     name=name,
@@ -53,7 +53,7 @@ def register():
         return jsonify({'message':'Registration Successful'}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message':f'Some error occured {str(e)}'}), 409
+        return jsonify({'error':f'Some error occured {str(e)}'}), 409
 
 @app.route('/login', methods=['POST'])
 def login():
