@@ -1,5 +1,5 @@
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, unset_jwt_cookies
-from models import ma,db, bcrypt, User, user_schema
+from models import ma,db, bcrypt, User, user_schema, Theatre, theatre_schema, theatres_schema
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
 
@@ -97,6 +97,37 @@ def fetchuserinfo():
 @jwt_required()
 def protected():
     return "You authorized to view this"
+
+# CREATE THEATRE API
+@app.route('/theatres', methods=['POST'])
+@jwt_required()
+def create_theatre():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user['id'])
+    
+    if not user.is_admin:
+        return jsonify({'message': 'Access denied. You must be an admin to create a theatre.'}), 403
+
+    data = request.json
+    name = data.get('name')
+    place = data.get('place')
+    location = data.get('location')
+    capacity = data.get('capacity')
+
+    if not name or not place or not location or not capacity:
+        return jsonify({'message': 'All fields are required'}), 400
+
+    new_theatre = Theatre(name=name, place=place, location=location,
+                          capacity=capacity, created_by=user.id)
+
+    try:
+        db.session.add(new_theatre)
+        db.session.commit()
+        return jsonify({'message': 'Theatre created successfully'}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error occurred while creating theatre: {str(e)}")
+        return jsonify({'message': 'Error occurred while creating theatre'}), 500
 
 
 if __name__ == "__main__":
