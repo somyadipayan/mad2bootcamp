@@ -1,8 +1,9 @@
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, unset_jwt_cookies
-from models import ma,db, bcrypt, User, user_schema, Theatre, theatre_schema, theatres_schema
+from models import ma,db, bcrypt, User, user_schema, Theatre, theatre_schema, theatres_schema, Shows, show_schema, shows_schema
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
-
+import datetime as datetime
+from sqlalchemy import and_, or_
 
 app = Flask(__name__)
 
@@ -184,6 +185,194 @@ def update_theatre(theatre_id):
         db.session.rollback()
         print(f"Error occurred while updating theatre: {str(e)}")
         return jsonify({'message': 'Error occurred while updating theatre'}), 500
+
+# DELETE A THEATRE
+@app.route('/theatres/<int:theatre_id>', methods=['DELETE'])
+@jwt_required()
+def delete_theatre(theatre_id):
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user['id'])
+
+    if not user or not user.is_admin:
+        return jsonify({'message': 'Access denied. You must be an admin to delete a theatre.'}), 403
+
+    theatre = Theatre.query.get(theatre_id)
+    if not theatre:
+        return jsonify({'message': 'Theatre not found'}), 404
+
+    try:
+
+        associated_shows = Shows.query.filter_by(theatre_id=theatre_id).all()
+        for show in associated_shows:
+            db.session.delete(show)
+
+        db.session.delete(theatre)
+        db.session.commit()
+
+        return jsonify({'message': 'Theatre and associated shows are deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error occurred while deleting theatre: {str(e)}")
+        return jsonify({'message': 'Error occurred while deleting theatre'}), 500
+
+@app.route('/theatres/<int:theatre_id>/shows', methods=["GET"])
+def get_all_shows(theatre_id):
+    try:
+        shows= Shows.query.filter_by(theatre_id=theatre_id).all()
+        return shows_schema.jsonify(shows)
+    except Exception as e:
+        return jsonify({'message': 'Error occurred while fetching shows', 'error': str(e)}), 500
+
+
+@app.route('/theatres/<int:theatre_id>/shows', methods=['POST'])
+@jwt_required()  
+def add_show_to_theatre(theatre_id):
+    try:
+        current_user = get_jwt_identity()
+        user = User.query.get(current_user['id'])
+        if not user or not user.is_admin:
+            return jsonify({'message': 'Unauthorized. Only admin users can access this action.'}), 403
+
+        data = request.get_json()
+        name = data['name']
+        tags = data['tags']
+        rating = 0
+        date_str = (data['date'])
+        start_time_str = data['start_time']
+        end_time_str = data['end_time']
+        price = data['price']
+        sold_ticket_count = 0
+
+ 
+        date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        start_time = datetime.datetime.strptime(start_time_str, '%H:%M').time()
+        end_time = datetime.datetime.strptime(end_time_str, '%H:%M').time()
+
+        # Check if the show timings overlap with existing shows in the same theatre
+        existing_shows = Shows.query.filter(
+            Shows.theatre_id == theatre_id,
+            Shows.date == date,
+            or_(
+                and_(Shows.start_time <= start_time,
+                     Shows.end_time > start_time),
+                and_(Shows.start_time < end_time, Shows.end_time >= end_time),
+            ),
+        ).all()
+
+        if existing_shows:
+            return jsonify({'message': 'Show timings overlap with existing shows.'}), 400
+
+        new_show = Shows(name, theatre_id, rating, tags, date,
+                         start_time, end_time, price, sold_ticket_count)
+        db.session.add(new_show)
+        db.session.commit()
+
+        return show_schema.jsonify(new_show)
+    except Exception as e:
+        return jsonify({'message': 'Error occurred while adding the show', 'error': str(e)}), 500
+    
+
+@app.route('/shows/<int:show_id>', methods=['GET'])
+def get_show(show_id):
+    try:
+        show = Shows.query.filter_by(id=show_id).first()
+        if not show:
+            return jsonify({'message': 'Show not found'}), 404
+        theatre = Theatre.query.get(show.theatre_id)
+        remaining_tickets = theatre.capacity - show.sold_ticket_count
+        data = {
+            'show': show_schema.dump(show),
+            'remaining_tickets': remaining_tickets,
+        }
+
+        return jsonify(data)
+
+    except Exception as e:
+        return jsonify({'message': 'Error occurred while fetching the show', 'error': str(e)}), 500
+    
+@app.route('/theatres/<int:theatre_id>/shows/<int:show_id>', methods=['PUT'])
+@jwt_required() 
+def edit_show(theatre_id, show_id):
+    try:
+        current_user = get_jwt_identity()
+        user = User.query.get(current_user['id'])
+        if not user or not user.is_admin:
+            return jsonify({'message': 'Unauthorized. Only admin users can access this action.'}), 403
+
+
+        show = Shows.query.filter_by(id=show_id, theatre_id=theatre_id).first()
+
+        if not show:
+            return jsonify({'message': 'Show not found'}), 404
+
+        data = request.get_json()
+        name = data['name']
+        tags = data['tags']
+        date_str = data['date']
+        start_time_str = data['start_time']
+        end_time_str = data['end_time']
+        price = data['price']
+
+        date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        start_time = datetime.datetime.strptime(start_time_str, '%H:%M').time()
+        end_time = datetime.datetime.strptime(end_time_str, '%H:%M').time()
+
+        # Check if the show timings overlap with existing shows in the same theatre
+        existing_shows = Shows.query.filter(
+            Shows.theatre_id == theatre_id,
+            Shows.date == date,
+            Shows.id != show_id,
+            or_(
+                and_(Shows.start_time <= start_time,
+                     Shows.end_time > start_time),
+                and_(Shows.start_time < end_time,
+                     Shows.end_time >= end_time),
+            ),
+        ).all()
+
+        if existing_shows:
+            return jsonify({'message': 'Show timings overlap with existing shows.'}), 400
+
+        show.name = name
+        show.tags = tags
+        show.date = date
+        show.start_time = start_time
+        show.end_time = end_time
+        show.price = price
+
+        db.session.commit()
+
+        return show_schema.jsonify(show)
+
+    except Exception as e:
+        return jsonify({'message': 'Error occurred while handling the show', 'error': str(e)}), 500
+
+
+
+@app.route('/shows/<int:show_id>', methods=['DELETE'])
+@jwt_required()  
+def delete_show(show_id):
+    try:
+        current_user = get_jwt_identity()
+        user = User.query.get(current_user['id'])
+        if not user or not user.is_admin:
+            return jsonify({'message': 'Unauthorized. Only admin users can access this action.'}), 403
+
+        show = Shows.query.filter_by(id=show_id).first()
+
+        if not show:
+            return jsonify({'message': 'Show not found'}), 404
+    
+        db.session.delete(show)
+        db.session.commit()
+
+        return jsonify({'message': 'Show deleted successfully'}), 200
+
+    except Exception as e:
+        return jsonify({'message': 'Error occurred while deleting the show', 'error': str(e)}), 500
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

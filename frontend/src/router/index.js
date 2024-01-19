@@ -3,6 +3,8 @@ import HomeView from "../views/HomeView.vue";
 import RegisterPage from "../views/RegisterPage.vue";
 import LoginPage from "../views/LoginPage.vue";
 import CreateTheatre from "../views/CreateTheatre.vue";
+import AllTheatres from "../views/AllTheatres.vue";
+import EditTheatre from "../views/EditTheatre.vue";
 
 const routes = [
   {
@@ -24,6 +26,16 @@ const routes = [
     path: "/create-theatre",
     name: "create-theatre",
     component: CreateTheatre,
+  },
+  {
+    path: "/all-theatres",
+    name: "all-theatres",
+    component: AllTheatres,
+  },
+  {
+    path: "/edit-theatre/:theatreId",
+    name: "edit-theatre",
+    component: EditTheatre,
   },
   {
     path: "/about",
