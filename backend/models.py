@@ -85,3 +85,42 @@ class ShowsSchema(ma.Schema):
 
 show_schema = ShowsSchema()
 shows_schema = ShowsSchema(many=True)
+
+
+class TransactionTable(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    show_id = db.Column(db.Integer, db.ForeignKey('shows.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    no_of_tickets = db.Column(db.Integer, nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    rating = db.Column(db.Float)
+
+    # Establish the relationships with User and Shows tables
+    user = db.relationship('User', backref='transactions')
+    show = db.relationship('Shows', backref='transactions')
+
+    def __init__(self, user_id, show_id, date, no_of_tickets, amount, rating=None):
+        self.user_id = user_id
+        self.show_id = show_id
+        self.date = date
+        self.no_of_tickets = no_of_tickets
+        self.amount = amount
+        self.rating = rating
+
+class TransactionTableSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'user_id', 'show_id', 'date', 'no_of_tickets', 'amount', 'rating')
+
+transaction_schema = TransactionTableSchema()
+transactions_schema = TransactionTableSchema(many=True)
+
+class BookingSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'user_id', 'show_id', 'date', 'no_of_tickets', 'amount', 'rating', 'theatre_name', 'show_name')
+        
+    theatre_name = fields.String()
+    show_name = fields.String()
+
+booking_schema = BookingSchema()
+bookings_schema = BookingSchema(many=True)

@@ -1,9 +1,9 @@
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity, unset_jwt_cookies
-from models import ma,db, bcrypt, User, user_schema, Theatre, theatre_schema, theatres_schema, Shows, show_schema, shows_schema
+from models import ma,db, bcrypt, User, user_schema, Theatre, theatre_schema, theatres_schema, Shows, show_schema, shows_schema, TransactionTable, transaction_schema, bookings_schema
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
-import datetime as datetime
-from sqlalchemy import and_, or_
+import datetime
+from sqlalchemy import and_, or_, func
 
 app = Flask(__name__)
 
@@ -372,6 +372,113 @@ def delete_show(show_id):
         return jsonify({'message': 'Error occurred while deleting the show', 'error': str(e)}), 500
 
 
+# book tickets for a show
+@app.route('/book_ticket/<int:show_id>', methods=['POST'])
+@jwt_required() 
+def book_ticket(show_id):
+    try:
+        
+        current_user = get_jwt_identity()
+        user_id = current_user['id']
+
+        show = Shows.query.get(show_id)
+        show_name = show.name
+        start_time = show.start_time.strftime('%H:%M')
+        end_time = show.end_time.strftime('%H:%M')
+        show_date = show.date.strftime('%Y-%m-%d')
+        theatre_name = Theatre.query.get(show.theatre_id).name
+
+        if not show:
+            return jsonify({'message': 'Show not found'}), 404
+
+        data = request.get_json()
+        no_of_tickets = data['no_of_tickets']
+
+        if no_of_tickets <= 0:
+            return jsonify({'message': 'Invalid number of tickets'}), 400
+
+        amount = no_of_tickets * show.price
+
+        # Check if there are enough tickets available
+        theatre = Theatre.query.get(show.theatre_id)
+        remaining_tickets = theatre.capacity - show.sold_ticket_count
+        if remaining_tickets < no_of_tickets:
+            return jsonify({'message': 'Not enough tickets available'}), 400
+
+        show.sold_ticket_count += no_of_tickets
+
+        new_transaction = TransactionTable(user_id=user_id, show_id=show_id, date=datetime.datetime.today(), no_of_tickets=no_of_tickets, amount=amount)
+        db.session.add(new_transaction)
+        db.session.commit()
+
+        # Send an email to the user with the ticket details
+
+        return transaction_schema.jsonify(new_transaction)
+
+    except Exception as e:
+        return jsonify({'message': 'Error occurred while booking the ticket', 'error': str(e)}), 500
+
+# API to fetch booking detail for a particular user
+@app.route('/my_bookings', methods=['GET'])
+@jwt_required()
+def my_bookings():
+    try:
+        current_user = get_jwt_identity()
+        user_id = current_user['id']
+
+        bookings = TransactionTable.query \
+                    .join(Shows, TransactionTable.show_id == Shows.id) \
+                    .join(Theatre, Shows.theatre_id == Theatre.id) \
+                    .add_columns(
+                        TransactionTable.id,
+                        TransactionTable.user_id,
+                        TransactionTable.show_id,
+                        TransactionTable.date,
+                        TransactionTable.no_of_tickets,
+                        TransactionTable.amount,
+                        TransactionTable.rating,
+                        Theatre.name.label('theatre_name'),
+                        Shows.name.label('show_name')
+                    ).filter(TransactionTable.user_id == user_id).all()
+
+        booking_data = bookings_schema.dump(bookings)
+        return jsonify(booking_data)
+
+    except Exception as e:
+        return jsonify({"message":"Some error Occured", "error":str(e)}), 500
+
+
+# API endpoint to update the rating for a booking
+@app.route('/update_rating', methods=['POST'])
+@jwt_required()
+def update_rating():
+    try:
+        data = request.json
+        booking_id = data.get('booking_id')
+        rating = data.get('rating')
+
+        current_user = get_jwt_identity()
+        user_id = current_user['id']
+
+        booking = TransactionTable.query.filter_by(id=booking_id, user_id=user_id).first()
+
+        if not booking:
+            return jsonify({'message': 'Booking not found or does not belong to the current user'}), 404
+
+        booking.rating = rating
+        db.session.commit()
+
+        show_id = booking.show_id
+        average_rating = db.session.query(func.avg(TransactionTable.rating)).filter_by(show_id=show_id).scalar()
+
+        show = Shows.query.filter_by(id=show_id).first()
+        show.rating = average_rating
+        db.session.commit()
+
+        return jsonify({'message': 'Rating updated successfully'})
+
+    except Exception as e:
+        return jsonify({'message': 'Error occurred while updating rating', 'error': str(e)}), 500
 
 
 if __name__ == "__main__":
