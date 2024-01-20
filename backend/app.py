@@ -215,10 +215,12 @@ def delete_theatre(theatre_id):
         print(f"Error occurred while deleting theatre: {str(e)}")
         return jsonify({'message': 'Error occurred while deleting theatre'}), 500
 
+
 @app.route('/theatres/<int:theatre_id>/shows', methods=["GET"])
 def get_all_shows(theatre_id):
     try:
         shows= Shows.query.filter_by(theatre_id=theatre_id).all()
+        print(shows)
         return shows_schema.jsonify(shows)
     except Exception as e:
         return jsonify({'message': 'Error occurred while fetching shows', 'error': str(e)}), 500
@@ -362,6 +364,11 @@ def delete_show(show_id):
 
         if not show:
             return jsonify({'message': 'Show not found'}), 404
+        
+                
+        transactions = TransactionTable.query.filter_by(show_id=show_id).all()
+        for transaction in transactions:
+            db.session.delete(transaction)
     
         db.session.delete(show)
         db.session.commit()

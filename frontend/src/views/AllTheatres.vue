@@ -1,6 +1,9 @@
 <template>
   <div>
     <h2>All Theatres</h2>
+    <router-link to="/create-theatre" class="btn btn-primary"
+      >Add a Theatre</router-link
+    >
     <table class="table">
       <thead>
         <tr>
@@ -18,7 +21,11 @@
           <td>{{ theatre.location }}</td>
           <td>{{ theatre.capacity }}</td>
           <td>
-            <router-link to="/" class="btn btn-primary mr-2">View</router-link>
+            <router-link
+              :to="`view-theatre/${theatre.id}/shows`"
+              class="btn btn-primary mr-2"
+              >View</router-link
+            >
             <router-link
               :to="`edit-theatre/${theatre.id}`"
               class="btn btn-success mr-2"
@@ -58,6 +65,7 @@ export default {
       })
         .then((response) => response.json())
         .then((data) => {
+          console.log(data);
           this.theatres = data.data;
           console.log(this.theatres);
         })

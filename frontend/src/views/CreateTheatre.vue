@@ -93,7 +93,7 @@ export default {
         .then((data) => {
           console.log(data);
           alert("New Thetre Added!");
-          // PUSH TO ALL THEATRE PAGE
+          this.$router.push("/all-theatres");
         })
         .catch((error) => {
           console.error("Add theatre error:", error);
