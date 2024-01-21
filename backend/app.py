@@ -8,6 +8,7 @@ from tools.mailer import send_email
 from flask_mail import Mail
 from tools.workers import celery, ContextTask
 from tools.task import add, test
+from flask_caching import Cache
 
 
 app = Flask(__name__)
@@ -17,8 +18,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'any_random_key'
 app.config['MAIL_SERVER'] = 'localhost'
 app.config['MAIL_PORT'] = 1025
-mail = Mail(app)
+app.config['CACHE_TYPE'] = 'redis'
+app.config['CACHE_REDIS_URL'] = 'redis://localhost:6379/0'
 
+mail = Mail(app)
+cache = Cache(app)
 jwt = JWTManager(app)
 
 db.init_app(app)
@@ -235,6 +239,7 @@ def delete_theatre(theatre_id):
 
 
 @app.route('/theatres/<int:theatre_id>/shows', methods=["GET"])
+@cache.cached(timeout=600)
 def get_all_shows(theatre_id):
     try:
         shows= Shows.query.filter_by(theatre_id=theatre_id).all()
@@ -243,6 +248,10 @@ def get_all_shows(theatre_id):
     except Exception as e:
         return jsonify({'message': 'Error occurred while fetching shows', 'error': str(e)}), 500
 
+@app.route('/clear_cache', methods=['POST'])
+def clear_cache():
+    cache.clear()
+    return jsonify({'message':'SUCCESS'})
 
 @app.route('/theatres/<int:theatre_id>/shows', methods=['POST'])
 @jwt_required()  
