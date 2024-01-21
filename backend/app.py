@@ -4,12 +4,20 @@ from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
 import datetime
 from sqlalchemy import and_, or_, func
+from tools.mailer import send_email
+from flask_mail import Mail
+from tools.workers import celery, ContextTask
+from tools.task import add, test
+
 
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'any_random_key'
+app.config['MAIL_SERVER'] = 'localhost'
+app.config['MAIL_PORT'] = 1025
+mail = Mail(app)
 
 jwt = JWTManager(app)
 
@@ -20,10 +28,20 @@ CORS(app, supports_credentials=True)
 with app.app_context():
     db.create_all()
 
+celery = celery
+
+celery.conf.update(
+    broker_url='redis://localhost:6379/1',
+    result_backend='redis://localhost:6379/2'
+)
+
+celery.Task = ContextTask
+
 app.app_context().push()
 
 @app.route('/', methods = ['GET'])
 def home():
+    test.delay(to='managerorcreator@gmail.com')
     return "Hello World!"
 
 @app.route('/register', methods = ['POST'])
