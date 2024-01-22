@@ -4,7 +4,6 @@ from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
 import datetime
 from sqlalchemy import and_, or_, func
-from tools.mailer import send_email
 from flask_mail import Mail
 from tools.workers import celery, ContextTask
 from tools.task import add, test
